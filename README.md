@@ -2,6 +2,8 @@
 
 Tone is an AI-powered real-time messaging application specifically designed for educational environments. Its core mission is to create safer communication spaces for students by using AI to detect harmful content and suggest kinder alternatives in real-time.
 
+**Live Demo:** [https://tone-alpha.vercel.app/](https://tone-alpha.vercel.app/)
+
 ## Key Features
 
 - **Real-time Toxicity Detection**: AI-powered analysis flags harmful content before it's sent, protecting students and creating safer conversations.
