@@ -1,0 +1,156 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  :root {
+    /* Core palette from PDR */
+    --background: 0 0% 3.1%; /* #080808 */
+    --foreground: 40 10% 87%; /* #e0ddd9 */
+    
+    --card: 0 0% 6%;
+    --card-foreground: 40 10% 87%;
+    
+    --popover: 0 0% 8%;
+    --popover-foreground: 40 10% 87%;
+    
+    --primary: 168 6% 20%; /* #2f3335 - buttons */
+    --primary-foreground: 40 10% 87%;
+    
+    --secondary: 44 12% 52%; /* #958d73 - small texts */
+    --secondary-foreground: 40 10% 87%;
+    
+    --muted: 0 0% 12%;
+    --muted-foreground: 44 12% 52%;
+    
+    --accent: 168 6% 25%;
+    --accent-foreground: 40 10% 87%;
+    
+    /* Toxicity status colors */
+    --safe: 142 52% 42%;
+    --warning: 45 65% 55%;
+    --toxic: 0 65% 55%;
+    
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 40 10% 87%;
+    
+    --border: 0 0% 15%;
+    --input: 0 0% 12%;
+    --ring: 168 6% 30%;
+    
+    --radius: 0.75rem;
+    
+    /* Message bubble colors */
+    --bubble-user: 210 10% 15%;
+    --bubble-ai: 0 0% 10%;
+    
+    /* Gradients */
+    --gradient-safe: linear-gradient(135deg, hsl(142, 52%, 42%), hsl(142, 52%, 35%));
+    --gradient-warning: linear-gradient(135deg, hsl(45, 65%, 55%), hsl(45, 65%, 45%));
+    --gradient-toxic: linear-gradient(135deg, hsl(0, 65%, 55%), hsl(0, 65%, 45%));
+    
+    /* Shadows */
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+    --shadow-glow-safe: 0 0 20px hsla(142, 52%, 42%, 0.3);
+    --shadow-glow-warning: 0 0 20px hsla(45, 65%, 55%, 0.3);
+    --shadow-glow-toxic: 0 0 20px hsla(0, 65%, 55%, 0.3);
+
+    --sidebar-background: 0 0% 5%;
+    --sidebar-foreground: 40 10% 87%;
+    --sidebar-primary: 168 6% 20%;
+    --sidebar-primary-foreground: 40 10% 87%;
+    --sidebar-accent: 0 0% 10%;
+    --sidebar-accent-foreground: 40 10% 87%;
+    --sidebar-border: 0 0% 15%;
+    --sidebar-ring: 168 6% 30%;
+  }
+
+  .dark {
+    --background: 0 0% 3.1%;
+    --foreground: 40 10% 87%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer components {
+  .message-bubble-user {
+    @apply bg-[hsl(var(--bubble-user))] text-foreground rounded-2xl rounded-br-sm px-4 py-3;
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .message-bubble-ai {
+    @apply bg-[hsl(var(--bubble-ai))] text-foreground rounded-2xl rounded-bl-sm px-4 py-3;
+    box-shadow: var(--shadow-sm);
+  }
+  
+  .toxicity-meter {
+    @apply h-2 rounded-full transition-all duration-500 ease-out;
+  }
+  
+  .status-safe {
+    @apply bg-safe;
+    box-shadow: var(--shadow-glow-safe);
+  }
+  
+  .status-warning {
+    @apply bg-warning;
+    box-shadow: var(--shadow-glow-warning);
+  }
+  
+  .status-toxic {
+    @apply bg-toxic;
+    box-shadow: var(--shadow-glow-toxic);
+  }
+  
+  .analysis-card {
+    @apply bg-card border border-border rounded-xl p-4;
+    box-shadow: var(--shadow-md);
+  }
+  
+  .suggestion-popup {
+    @apply bg-popover border border-border rounded-2xl p-6;
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+@layer utilities {
+  .text-small {
+    @apply text-secondary text-sm;
+  }
+  
+  .text-large {
+    @apply text-foreground text-lg font-medium;
+  }
+  
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted)) transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 3px;
+  }
+}
