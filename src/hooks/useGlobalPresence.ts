@@ -1,73 +1,28 @@
-import { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { socket } from "@/integrations/api/socket";
 
-interface OnlineUser {
-  id: string;
-  username: string;
-}
+interface OnlineUser { id: string; username: string; }
 
 export const useGlobalPresence = () => {
   const { user } = useAuth();
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const joined = useRef(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || joined.current) return;
+    joined.current = true;
 
-    // Fetch current user's username
-    const initPresence = async () => {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('username')
-        .eq('id', user.id)
-        .single();
-
-      const username = profile?.username || 'Unknown';
-
-      // Subscribe to global presence channel
-      const channel = supabase.channel('global-presence', {
-        config: { presence: { key: user.id } }
-      });
-
-      channel
-        .on('presence', { event: 'sync' }, () => {
-          const state = channel.presenceState();
-          const online: OnlineUser[] = [];
-
-          Object.entries(state).forEach(([userId, presences]) => {
-            if (Array.isArray(presences) && presences.length > 0) {
-              const presence = presences[0] as { username?: string };
-              online.push({
-                id: userId,
-                username: presence.username || 'Unknown',
-              });
-            }
-          });
-
-          setOnlineUsers(online);
-        })
-        .subscribe(async (status) => {
-          if (status === 'SUBSCRIBED') {
-            await channel.track({ username });
-          }
-        });
-
-      channelRef.current = channel;
-    };
-
-    initPresence();
+    socket.connect();
+    socket.emit("join", { user_id: user.id, username: user.username });
+    socket.on("online_users", (users: OnlineUser[]) => setOnlineUsers(users));
 
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-      }
+      socket.off("online_users");
+      joined.current = false;
     };
   }, [user]);
 
-  const isUserOnline = (userId: string) => {
-    return onlineUsers.some(u => u.id === userId);
-  };
-
+  const isUserOnline = (userId: string) => onlineUsers.some((u) => u.id === userId);
   return { onlineUsers, isUserOnline };
 };
