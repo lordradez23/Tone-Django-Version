@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { useGlobalPresence } from '@/hooks/useGlobalPresence';
-import { supabase } from '@/integrations/supabase/client';
+import { api } from '@/integrations/api/client';
 
 interface Profile {
   id: string;
@@ -33,29 +33,17 @@ export const NewChatDialog = ({ isOpen, onClose, onConversationCreated }: NewCha
 
   // Search users
   useEffect(() => {
-    if (!searchQuery.trim() || mode === 'select') {
-      setUsers([]);
-      return;
-    }
-
-    const searchUsers = async () => {
+    if (!searchQuery.trim() || mode === 'select') { setUsers([]); return; }
+    const debounce = setTimeout(async () => {
       setIsSearching(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, username, avatar_url')
-        .ilike('username', `%${searchQuery}%`)
-        .neq('id', user?.id)
-        .limit(10);
-
-      if (!error && data) {
+      try {
+        const data = await api.get<Profile[]>(`/users/search?q=${encodeURIComponent(searchQuery)}`);
         setUsers(data);
-      }
-      setIsSearching(false);
-    };
-
-    const debounce = setTimeout(searchUsers, 300);
+      } catch { setUsers([]); }
+      finally { setIsSearching(false); }
+    }, 300);
     return () => clearTimeout(debounce);
-  }, [searchQuery, user?.id, mode]);
+  }, [searchQuery, mode]);
 
   const handleSelectUser = (profile: Profile) => {
     if (mode === 'direct') {
@@ -74,99 +62,27 @@ export const NewChatDialog = ({ isOpen, onClose, onConversationCreated }: NewCha
   const createDirectChat = async (otherUser: Profile) => {
     if (!user) return;
     setIsLoading(true);
-
-    // Check if conversation already exists
-    const { data: existingConv } = await supabase
-      .from('conversation_members')
-      .select('conversation_id')
-      .eq('user_id', user.id);
-
-    if (existingConv?.length) {
-      for (const conv of existingConv) {
-        const { data: otherMember } = await supabase
-          .from('conversation_members')
-          .select('user_id')
-          .eq('conversation_id', conv.conversation_id)
-          .eq('user_id', otherUser.id)
-          .single();
-
-        if (otherMember) {
-          const { data: convData } = await supabase
-            .from('conversations')
-            .select('id, is_group')
-            .eq('id', conv.conversation_id)
-            .eq('is_group', false)
-            .single();
-
-          if (convData) {
-            onConversationCreated(convData.id);
-            setIsLoading(false);
-            resetDialog();
-            return;
-          }
-        }
-      }
-    }
-
-    // Create new conversation
-    const { data: newConv, error: convError } = await supabase
-      .from('conversations')
-      .insert({
-        is_group: false,
-        created_by: user.id,
-      })
-      .select()
-      .single();
-
-    if (convError || !newConv) {
-      console.error('Error creating conversation:', convError);
-      setIsLoading(false);
-      return;
-    }
-
-    // Add members
-    await supabase.from('conversation_members').insert([
-      { conversation_id: newConv.id, user_id: user.id },
-      { conversation_id: newConv.id, user_id: otherUser.id },
-    ]);
-
-    onConversationCreated(newConv.id);
-    setIsLoading(false);
-    resetDialog();
+    try {
+      const conv = await api.post<{ id: string }>('/conversations', { is_group: false, member_ids: [otherUser.id] });
+      onConversationCreated(conv.id);
+      resetDialog();
+    } catch (e) { console.error(e); }
+    finally { setIsLoading(false); }
   };
 
   const createGroupChat = async () => {
     if (!user || !groupName.trim() || selectedUsers.length === 0) return;
     setIsLoading(true);
-
-    // Create new conversation
-    const { data: newConv, error: convError } = await supabase
-      .from('conversations')
-      .insert({
-        name: groupName.trim(),
+    try {
+      const conv = await api.post<{ id: string }>('/conversations', {
         is_group: true,
-        created_by: user.id,
-      })
-      .select()
-      .single();
-
-    if (convError || !newConv) {
-      console.error('Error creating conversation:', convError);
-      setIsLoading(false);
-      return;
-    }
-
-    // Add all members including current user
-    const members = [
-      { conversation_id: newConv.id, user_id: user.id },
-      ...selectedUsers.map(u => ({ conversation_id: newConv.id, user_id: u.id })),
-    ];
-
-    await supabase.from('conversation_members').insert(members);
-
-    onConversationCreated(newConv.id);
-    setIsLoading(false);
-    resetDialog();
+        name: groupName.trim(),
+        member_ids: selectedUsers.map(u => u.id),
+      });
+      onConversationCreated(conv.id);
+      resetDialog();
+    } catch (e) { console.error(e); }
+    finally { setIsLoading(false); }
   };
 
   const resetDialog = () => {

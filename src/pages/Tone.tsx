@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, MessageSquare, Users, LogOut, Search, Loader2, PanelLeftClose, PanelLeft, Circle } from 'lucide-react';
+import { Plus, MessageSquare, Users, LogOut, Search, Loader2, PanelLeftClose, PanelLeft, Circle, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { useGlobalPresence } from '@/hooks/useGlobalPresence';
-import { supabase } from '@/integrations/supabase/client';
+import { socket } from '@/integrations/api/socket';
+import { api, API_BASE } from '@/integrations/api/client';
 import { ConversationView } from '@/components/chat/ConversationView';
 import { NewChatDialog } from '@/components/chat/NewChatDialog';
+import { ProfileModal } from '@/components/ProfileModal';
 import { Helmet } from 'react-helmet-async';
 
 interface Conversation {
@@ -39,6 +41,7 @@ const Tone = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showOnlineUsers, setShowOnlineUsers] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   // Handle window resize for responsive behavior
   useEffect(() => {
@@ -64,95 +67,11 @@ const Tone = () => {
   // Fetch conversations
   useEffect(() => {
     if (!user) return;
-
-    const fetchConversations = async () => {
-      setIsLoadingConversations(true);
-
-      const { data: memberData, error: memberError } = await supabase
-        .from('conversation_members')
-        .select('conversation_id')
-        .eq('user_id', user.id);
-
-      if (memberError || !memberData?.length) {
-        setIsLoadingConversations(false);
-        return;
-      }
-
-      const conversationIds = memberData.map(m => m.conversation_id);
-
-      const { data: conversationsData, error: convError } = await supabase
-        .from('conversations')
-        .select('*')
-        .in('id', conversationIds)
-        .order('updated_at', { ascending: false });
-
-      if (convError) {
-        console.error('Error fetching conversations:', convError);
-        setIsLoadingConversations(false);
-        return;
-      }
-
-      // Fetch last message and last_read_at for each conversation
-      const lastMessages = await Promise.all(
-        conversationIds.map(async (convId) => {
-          const { data } = await supabase
-            .from('messages')
-            .select('content, created_at')
-            .eq('conversation_id', convId)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          return { convId, lastMessage: data?.content || null, lastMessageAt: data?.created_at || null };
-        })
-      );
-      const lastMessageMap = new Map(lastMessages.map(lm => [lm.convId, { content: lm.lastMessage, at: lm.lastMessageAt }]));
-
-      // Get last_read_at for unread indicators
-      const { data: membershipData } = await supabase
-        .from('conversation_members')
-        .select('conversation_id, last_read_at')
-        .eq('user_id', user.id);
-
-      const lastReadMap = new Map(membershipData?.map(m => [m.conversation_id, m.last_read_at]) || []);
-
-      // For 1-on-1 chats, get the other user's info
-      const enhancedConversations = await Promise.all(
-        (conversationsData || []).map(async (conv) => {
-          const lastMsg = lastMessageMap.get(conv.id);
-          const lastReadAt = lastReadMap.get(conv.id);
-          const hasUnread = lastMsg?.at && lastReadAt ? new Date(lastMsg.at) > new Date(lastReadAt) : false;
-
-          if (!conv.is_group) {
-            const { data: members } = await supabase
-              .from('conversation_members')
-              .select('user_id')
-              .eq('conversation_id', conv.id)
-              .neq('user_id', user.id);
-
-            if (members?.length) {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('id, username, avatar_url')
-                .eq('id', members[0].user_id)
-                .single();
-
-              return {
-                ...conv,
-                other_user: profile || undefined,
-                last_message: lastMsg?.content || null,
-                has_unread: hasUnread,
-              };
-            }
-          }
-          return { ...conv, last_message: lastMsg?.content || null, has_unread: hasUnread };
-        })
-      );
-
-      setConversations(enhancedConversations);
-      setIsLoadingConversations(false);
-    };
-
-    fetchConversations();
+    setIsLoadingConversations(true);
+    api.get<Conversation[]>('/conversations')
+      .then(setConversations)
+      .catch(console.error)
+      .finally(() => setIsLoadingConversations(false));
   }, [user]);
 
   const handleSignOut = async () => {
@@ -162,81 +81,8 @@ const Tone = () => {
 
   const refreshConversations = async () => {
     if (!user) return;
-
-    const { data: memberData } = await supabase
-      .from('conversation_members')
-      .select('conversation_id')
-      .eq('user_id', user.id);
-
-    if (!memberData?.length) return;
-
-    const conversationIds = memberData.map(m => m.conversation_id);
-
-    const { data: conversationsData } = await supabase
-      .from('conversations')
-      .select('*')
-      .in('id', conversationIds)
-      .order('updated_at', { ascending: false });
-
-    if (!conversationsData) return;
-
-    // Fetch last message for each conversation
-    const lastMessages = await Promise.all(
-      conversationIds.map(async (convId) => {
-        const { data } = await supabase
-          .from('messages')
-          .select('content, created_at')
-          .eq('conversation_id', convId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        return { convId, lastMessage: data?.content || null, lastMessageAt: data?.created_at || null };
-      })
-    );
-    const lastMessageMap = new Map(lastMessages.map(lm => [lm.convId, { content: lm.lastMessage, at: lm.lastMessageAt }]));
-
-    // Get last_read_at for unread indicators
-    const { data: membershipData } = await supabase
-      .from('conversation_members')
-      .select('conversation_id, last_read_at')
-      .eq('user_id', user.id);
-
-    const lastReadMap = new Map(membershipData?.map(m => [m.conversation_id, m.last_read_at]) || []);
-
-    // For 1-on-1 chats, get the other user's info
-    const enhancedConversations = await Promise.all(
-      conversationsData.map(async (conv) => {
-        const lastMsg = lastMessageMap.get(conv.id);
-        const lastReadAt = lastReadMap.get(conv.id);
-        const hasUnread = lastMsg?.at && lastReadAt ? new Date(lastMsg.at) > new Date(lastReadAt) : false;
-
-        if (!conv.is_group) {
-          const { data: members } = await supabase
-            .from('conversation_members')
-            .select('user_id')
-            .eq('conversation_id', conv.id)
-            .neq('user_id', user.id);
-
-          if (members?.length) {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('id, username, avatar_url')
-              .eq('id', members[0].user_id)
-              .single();
-
-            return {
-              ...conv,
-              other_user: profile || undefined,
-              last_message: lastMsg?.content || null,
-              has_unread: hasUnread,
-            };
-          }
-        }
-        return { ...conv, last_message: lastMsg?.content || null, has_unread: hasUnread };
-      })
-    );
-
-    setConversations(enhancedConversations);
+    const data = await api.get<Conversation[]>('/conversations');
+    setConversations(data);
   };
 
   const handleConversationCreated = (conversationId: string) => {
@@ -322,6 +168,24 @@ const Tone = () => {
                       <PanelLeftClose className="w-5 h-5" />
                     </Button>
                   )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsProfileOpen(true)}
+                    className="text-secondary hover:text-foreground h-9 w-9"
+                    title="Edit profile"
+                  >
+                    {user?.avatar_url ? (
+                      <img
+                        src={user.avatar_url.startsWith('http') || user.avatar_url.startsWith('data:') ? user.avatar_url : `${API_BASE}${user.avatar_url}`}
+                        alt={user.username}
+                        className="w-6 h-6 rounded-full object-cover"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                      />
+                    ) : (
+                      <User className="w-5 h-5" />
+                    )}
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -558,6 +422,12 @@ const Tone = () => {
           isOpen={isNewChatOpen}
           onClose={() => setIsNewChatOpen(false)}
           onConversationCreated={handleConversationCreated}
+        />
+
+        {/* Profile Modal */}
+        <ProfileModal
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
         />
       </div>
     </>
