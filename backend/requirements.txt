@@ -1,0 +1,8 @@
+flask
+flask-cors
+flask-socketio
+flask-sqlalchemy
+flask-jwt-extended
+bcrypt
+python-dotenv
+google-genai
