@@ -43,7 +43,6 @@ def update_status():
     status = request.json.get("status", "").strip()[:100]
     user.status = status
     db.session.commit()
-    # Update in-memory presence and broadcast
     if user_id in online_users:
         online_users[user_id]["status"] = status
         socketio.emit("online_users", [
