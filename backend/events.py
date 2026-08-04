@@ -1,7 +1,6 @@
 from app import socketio
 from routes.users import online_users
 
-# Map socket session id -> user info
 sid_to_user: dict[str, dict] = {}
 
 @socketio.on("connect")
@@ -18,7 +17,7 @@ def on_join(data):
 
     if user_id and username:
         user = User.query.get(user_id)
-        status = user.status or "" if user else ""
+        status = (user.status or "") if user else ""
         sid_to_user[sock_request.sid] = {"id": user_id, "username": username}
         online_users[user_id] = {"username": username, "status": status}
         socketio.emit("online_users", [

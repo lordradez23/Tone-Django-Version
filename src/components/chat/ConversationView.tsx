@@ -57,16 +57,27 @@ export const ConversationView = ({ conversationId, onClose }: ConversationViewPr
   const [isDeleting, setIsDeleting] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const messageRefsMap = useRef<Map<string, HTMLDivElement>>(new Map());
+  const sentMessageIds = useRef<Set<string>>(new Set());
 
   const { analysis, isAnalyzing, analyze, reset } = useAnalyze(800);
   const { uploadFile, isUploading } = useFileUpload();
   const { permission, requestPermission, showNotification, isSupported } = useNotifications();
+
+  const handleSelectMessage = useCallback((messageId: string) => {
+    setShowSearch(false);
+    setHighlightedMessageId(messageId);
+    const el = messageRefsMap.current.get(messageId);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => setHighlightedMessageId(null), 2000);
+  }, []);
 
   const markAsRead = useCallback(async () => {
     await api.post(`/conversations/${conversationId}/read`, {});
@@ -77,15 +88,10 @@ export const ConversationView = ({ conversationId, onClose }: ConversationViewPr
     setIsLoading(true);
     Promise.all([
       api.get<Message[]>(`/messages/conversation/${conversationId}`),
-      api.get<{ id: string; name: string | null; is_group: boolean; other_user?: { username: string } }>(
-        `/conversations`
-      ).then(async () => {
-        // Get conversation info from messages endpoint context — fetch separately
-        const convs = await api.get<Array<{ id: string; name: string | null; is_group: boolean; other_user?: { username: string } }>>('/conversations');
-        return convs.find(c => c.id === conversationId);
-      }),
-    ]).then(([msgs, conv]) => {
+      api.get<Array<{ id: string; name: string | null; is_group: boolean; other_user?: { username: string } }>>('/conversations'),
+    ]).then(([msgs, convs]) => {
       setMessages(msgs);
+      const conv = convs.find(c => c.id === conversationId);
       if (conv) {
         setConversationName(conv.is_group ? (conv.name || 'Group Chat') : (conv.other_user?.username || 'Unknown'));
       }
@@ -100,6 +106,11 @@ export const ConversationView = ({ conversationId, onClose }: ConversationViewPr
     socket.emit('join', { user_id: user.id, username: user.username, conversation_id: conversationId });
 
     const onNewMessage = async (msg: Message) => {
+      // Skip if sender already appended this message optimistically
+      if (sentMessageIds.current.has(msg.id)) {
+        sentMessageIds.current.delete(msg.id);
+        return;
+      }
       setMessages(prev => [...prev, msg]);
       if (msg.sender_id !== user.id) {
         showNotification(`New message from ${msg.sender_profile?.username || 'Someone'}`, {
@@ -169,18 +180,43 @@ export const ConversationView = ({ conversationId, onClose }: ConversationViewPr
   const sendMessage = async (content: string, messageAnalysis: AnalysisResult | null, attachment?: { url: string; name: string; type: string }) => {
     if (!user) return;
     socket.emit('stop_typing', { conversation_id: conversationId, user_id: user.id });
-    await api.post(`/messages/conversation/${conversationId}`, {
+
+    // Optimistic append for sender
+    const tempId = `temp-${Date.now()}`;
+    const optimistic: Message = {
+      id: tempId,
       content: content || (attachment ? `📎 ${attachment.name}` : ''),
-      toxicity_score: messageAnalysis?.toxicity.confidence || null,
+      sender_id: user.id,
+      toxicity_score: null,
       toxicity_label: messageAnalysis?.toxicity.label || 'safe',
-      is_flagged: messageAnalysis?.toxicity.label === 'toxic',
+      created_at: new Date().toISOString(),
       attachment_url: attachment?.url || null,
       attachment_name: attachment?.name || null,
       attachment_type: attachment?.type || null,
-    });
+      sender_profile: { username: user.username, avatar_url: user.avatar_url || null },
+    };
+    setMessages(prev => [...prev, optimistic]);
     setInputValue('');
     setSelectedFile(null);
     reset();
+
+    try {
+      const saved = await api.post<Message>(`/messages/conversation/${conversationId}`, {
+        content: optimistic.content,
+        toxicity_score: messageAnalysis?.toxicity.confidence || null,
+        toxicity_label: messageAnalysis?.toxicity.label || 'safe',
+        is_flagged: messageAnalysis?.toxicity.label === 'toxic',
+        attachment_url: attachment?.url || null,
+        attachment_name: attachment?.name || null,
+        attachment_type: attachment?.type || null,
+      });
+      // Track real ID so socket dedup skips it, then replace temp with real
+      sentMessageIds.current.add(saved.id);
+      setMessages(prev => prev.map(m => m.id === tempId ? saved : m));
+    } catch {
+      // Remove optimistic message on failure
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+    }
   };
 
   const handleSendWithAttachment = async () => {
@@ -281,7 +317,7 @@ export const ConversationView = ({ conversationId, onClose }: ConversationViewPr
             </button>
           </div>
           <AnimatePresence>
-            {showSearch && <SearchMessages conversationId={conversationId} onClose={() => setShowSearch(false)} />}
+            {showSearch && <SearchMessages conversationId={conversationId} onSelectMessage={handleSelectMessage} onClose={() => setShowSearch(false)} />}
           </AnimatePresence>
         </header>
 
@@ -299,8 +335,11 @@ export const ConversationView = ({ conversationId, onClose }: ConversationViewPr
           ) : (
             messages.map((message) => (
               <motion.div key={message.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                ref={(el) => { if (el) messageRefsMap.current.set(message.id, el); else messageRefsMap.current.delete(message.id); }}
                 className={`mb-3 md:mb-4 flex ${message.sender_id === user?.id ? 'justify-end' : 'justify-start'} group`}>
-                <div className={`max-w-[85%] sm:max-w-[75%] md:max-w-[70%] px-3 md:px-4 py-2 md:py-3 rounded-2xl relative ${
+                <div className={`max-w-[85%] sm:max-w-[75%] md:max-w-[70%] px-3 md:px-4 py-2 md:py-3 rounded-2xl relative transition-colors duration-300 ${
+                  highlightedMessageId === message.id ? 'ring-2 ring-ring' : ''
+                } ${
                   message.sender_id === user?.id ? 'bg-[hsl(var(--bubble-user))] rounded-br-sm' : 'bg-[hsl(var(--bubble-ai))] rounded-bl-sm'
                 }`}>
                   {message.sender_id !== user?.id && (
