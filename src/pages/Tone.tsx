@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, MessageSquare, Users, LogOut, Search, Loader2, PanelLeftClose, PanelLeft, Circle, User, Pencil, Check, X } from 'lucide-react';
@@ -23,11 +23,16 @@ interface Conversation {
   last_message?: string;
   last_message_at?: string;
   has_unread?: boolean;
-  other_user?: {
-    id: string;
-    username: string;
-    avatar_url: string | null;
-  };
+  other_user?: { id: string; username: string; avatar_url: string | null };
+}
+
+interface IncomingMessage {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  sender_profile?: { username: string; avatar_url: string | null };
 }
 
 const Tone = () => {
@@ -47,28 +52,20 @@ const Tone = () => {
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [statusDraft, setStatusDraft] = useState('');
 
-  // Handle window resize for responsive behavior
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth < 768;
       setIsMobile(mobile);
-      // Auto-show sidebar on desktop, auto-hide on mobile when conversation selected
-      if (!mobile) {
-        setIsSidebarOpen(true);
-      }
+      if (!mobile) setIsSidebarOpen(true);
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Redirect if not logged in
   useEffect(() => {
-    if (!loading && !user) {
-      navigate('/auth');
-    }
+    if (!loading && !user) navigate('/auth');
   }, [user, loading, navigate]);
 
-  // Fetch conversations
   useEffect(() => {
     if (!user) return;
     setIsLoadingConversations(true);
@@ -78,15 +75,43 @@ const Tone = () => {
       .finally(() => setIsLoadingConversations(false));
   }, [user]);
 
-  const handleSignOut = async () => {
-    await signOut();
-    navigate('/');
-  };
+  // Real-time sidebar updates — update last_message preview + unread badge
+  useEffect(() => {
+    if (!user) return;
 
-  const refreshConversations = async () => {
+    const onNewMessage = (msg: IncomingMessage) => {
+      setConversations(prev => {
+        const idx = prev.findIndex(c => c.id === msg.conversation_id);
+        if (idx === -1) {
+          // New conversation not yet in list — refresh
+          api.get<Conversation[]>('/conversations').then(setConversations).catch(console.error);
+          return prev;
+        }
+        const updated = { ...prev[idx] };
+        updated.last_message = msg.content;
+        updated.last_message_at = msg.created_at;
+        // Mark unread only if sender is someone else and this conv isn't currently open
+        if (msg.sender_id !== user.id && msg.conversation_id !== selectedConversation) {
+          updated.has_unread = true;
+        }
+        const rest = prev.filter((_, i) => i !== idx);
+        return [updated, ...rest];
+      });
+    };
+
+    socket.on('new_message', onNewMessage);
+    return () => { socket.off('new_message', onNewMessage); };
+  }, [user, selectedConversation]);
+
+  const refreshConversations = useCallback(async () => {
     if (!user) return;
     const data = await api.get<Conversation[]>('/conversations');
     setConversations(data);
+  }, [user]);
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
   };
 
   const handleConversationCreated = (conversationId: string) => {
@@ -99,6 +124,10 @@ const Tone = () => {
   const handleSelectConversation = (conversationId: string) => {
     setSelectedConversation(conversationId);
     if (isMobile) setIsSidebarOpen(false);
+    // Clear unread badge immediately on open
+    setConversations(prev =>
+      prev.map(c => c.id === conversationId ? { ...c, has_unread: false } : c)
+    );
   };
 
   const handleBackToConversations = () => {
@@ -140,9 +169,7 @@ const Tone = () => {
         <AnimatePresence>
           {isMobile && isSidebarOpen && selectedConversation && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onClick={() => setIsSidebarOpen(false)}
               className="absolute inset-0 bg-black/50 z-20 md:hidden"
             />
@@ -157,33 +184,20 @@ const Tone = () => {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: isMobile ? -320 : 0, opacity: isMobile ? 1 : 0 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
-              className={`${isMobile
-                  ? 'absolute left-0 top-0 bottom-0 z-30 w-[85vw] max-w-[320px]'
-                  : 'relative w-80 lg:w-[320px]'
-                } border-r border-border flex flex-col bg-card/95 backdrop-blur-sm`}
+              className={`${isMobile ? 'absolute left-0 top-0 bottom-0 z-30 w-[85vw] max-w-[320px]' : 'relative w-80 lg:w-[320px]'} border-r border-border flex flex-col bg-card/95 backdrop-blur-sm`}
             >
               {/* Sidebar Header */}
               <div className="h-14 md:h-16 border-b border-border flex items-center justify-between px-3 md:px-4 flex-shrink-0">
                 <h1 className="text-base md:text-lg font-semibold text-foreground">Tone</h1>
                 <div className="flex items-center gap-1">
                   {!isMobile && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setIsSidebarOpen(false)}
-                      className="text-secondary hover:text-foreground h-9 w-9"
-                      title="Collapse sidebar"
-                    >
+                    <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(false)}
+                      className="text-secondary hover:text-foreground h-9 w-9" title="Collapse sidebar">
                       <PanelLeftClose className="w-5 h-5" />
                     </Button>
                   )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setIsProfileOpen(true)}
-                    className="text-secondary hover:text-foreground h-9 w-9"
-                    title="Edit profile"
-                  >
+                  <Button variant="ghost" size="icon" onClick={() => setIsProfileOpen(true)}
+                    className="text-secondary hover:text-foreground h-9 w-9" title="Edit profile">
                     {user?.avatar_url ? (
                       <img
                         src={user.avatar_url.startsWith('http') || user.avatar_url.startsWith('data:') ? user.avatar_url : `${API_BASE}${user.avatar_url}`}
@@ -195,13 +209,8 @@ const Tone = () => {
                       <User className="w-5 h-5" />
                     )}
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleSignOut}
-                    className="text-secondary hover:text-foreground h-9 w-9"
-                    title="Sign out"
-                  >
+                  <Button variant="ghost" size="icon" onClick={handleSignOut}
+                    className="text-secondary hover:text-foreground h-9 w-9" title="Sign out">
                     <LogOut className="w-5 h-5" />
                   </Button>
                 </div>
@@ -212,9 +221,7 @@ const Tone = () => {
                 {isEditingStatus ? (
                   <>
                     <input
-                      autoFocus
-                      maxLength={100}
-                      value={statusDraft}
+                      autoFocus maxLength={100} value={statusDraft}
                       onChange={(e) => setStatusDraft(e.target.value)}
                       onKeyDown={(e) => { if (e.key === 'Enter') handleSaveStatus(); if (e.key === 'Escape') setIsEditingStatus(false); }}
                       placeholder="Set a status..."
@@ -228,10 +235,8 @@ const Tone = () => {
                     </button>
                   </>
                 ) : (
-                  <button
-                    onClick={() => { setStatusDraft(user?.status ?? ''); setIsEditingStatus(true); }}
-                    className="flex items-center gap-1.5 w-full text-left group"
-                  >
+                  <button onClick={() => { setStatusDraft(user?.status ?? ''); setIsEditingStatus(true); }}
+                    className="flex items-center gap-1.5 w-full text-left group">
                     <Circle className="w-2 h-2 fill-safe text-safe flex-shrink-0" />
                     <span className="text-xs text-secondary truncate flex-1 group-hover:text-foreground transition-colors">
                       {user?.status ? user.status : 'Set a status...'}
@@ -245,41 +250,29 @@ const Tone = () => {
               <div className="p-3 md:p-4">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" />
-                  <Input
-                    placeholder="Search..."
-                    value={searchQuery}
+                  <Input placeholder="Search..." value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 h-10 md:h-11 text-sm"
-                  />
+                    className="pl-10 h-10 md:h-11 text-sm" />
                 </div>
               </div>
 
               {/* New Chat Button */}
               <div className="px-3 md:px-4 mb-2">
-                <Button
-                  onClick={() => setIsNewChatOpen(true)}
-                  className="w-full bg-safe text-foreground hover:bg-safe/90 h-10 md:h-11 text-sm"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Chat
+                <Button onClick={() => setIsNewChatOpen(true)}
+                  className="w-full bg-safe text-foreground hover:bg-safe/90 h-10 md:h-11 text-sm">
+                  <Plus className="w-4 h-4 mr-2" />New Chat
                 </Button>
               </div>
 
-              {/* Online Users / Conversations Toggle */}
+              {/* Chats / Online Toggle */}
               <div className="px-3 md:px-4 mb-2">
                 <div className="flex gap-1 p-1 bg-muted rounded-lg">
-                  <button
-                    onClick={() => setShowOnlineUsers(false)}
-                    className={`flex-1 py-1.5 px-3 rounded-md text-xs font-medium transition-colors ${!showOnlineUsers ? 'bg-card text-foreground shadow-sm' : 'text-secondary hover:text-foreground'
-                      }`}
-                  >
+                  <button onClick={() => setShowOnlineUsers(false)}
+                    className={`flex-1 py-1.5 px-3 rounded-md text-xs font-medium transition-colors ${!showOnlineUsers ? 'bg-card text-foreground shadow-sm' : 'text-secondary hover:text-foreground'}`}>
                     Chats
                   </button>
-                  <button
-                    onClick={() => setShowOnlineUsers(true)}
-                    className={`flex-1 py-1.5 px-3 rounded-md text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${showOnlineUsers ? 'bg-card text-foreground shadow-sm' : 'text-secondary hover:text-foreground'
-                      }`}
-                  >
+                  <button onClick={() => setShowOnlineUsers(true)}
+                    className={`flex-1 py-1.5 px-3 rounded-md text-xs font-medium transition-colors flex items-center justify-center gap-1.5 ${showOnlineUsers ? 'bg-card text-foreground shadow-sm' : 'text-secondary hover:text-foreground'}`}>
                     <Circle className="w-2 h-2 fill-safe text-safe" />
                     Online ({onlineUsers.filter(u => u.id !== user?.id).length})
                   </button>
@@ -289,48 +282,36 @@ const Tone = () => {
               {/* Content Area */}
               <div className="flex-1 overflow-y-auto scrollbar-thin">
                 {showOnlineUsers ? (
-                  // Online Users List
                   <div className="px-1">
                     {onlineUsers.filter(u => u.id !== user?.id).length === 0 ? (
                       <div className="text-center py-8 px-4">
                         <Circle className="w-10 h-10 md:w-12 md:h-12 text-muted mx-auto mb-3" />
                         <p className="text-secondary text-sm">No one else online</p>
-                        <p className="text-muted-foreground text-xs mt-1">
-                          You're the only one here right now
-                        </p>
+                        <p className="text-muted-foreground text-xs mt-1">You're the only one here right now</p>
                       </div>
                     ) : (
                       <AnimatePresence>
-                        {onlineUsers
-                          .filter(u => u.id !== user?.id)
-                          .map((onlineUser) => (
-                            <motion.button
-                              key={onlineUser.id}
-                              initial={{ opacity: 0, x: -20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: -20 }}
-                              onClick={() => setIsNewChatOpen(true)}
-                              className="w-full p-3 md:p-4 flex items-center gap-3 hover:bg-muted/50 active:bg-muted transition-colors text-left"
-                            >
-                              <div className="relative w-10 h-10 md:w-11 md:h-11 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                                <span className="text-foreground font-medium text-sm md:text-base">
-                                  {onlineUser.username.charAt(0).toUpperCase()}
-                                </span>
-                                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-safe rounded-full border-2 border-card animate-pulse" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-foreground font-medium text-sm md:text-base truncate">
-                                  {onlineUser.username}
-                                </p>
-                                <p className="text-safe text-xs truncate">{onlineUser.status || 'Online now'}</p>
-                              </div>
-                            </motion.button>
-                          ))}
+                        {onlineUsers.filter(u => u.id !== user?.id).map((onlineUser) => (
+                          <motion.button key={onlineUser.id}
+                            initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+                            onClick={() => setIsNewChatOpen(true)}
+                            className="w-full p-3 md:p-4 flex items-center gap-3 hover:bg-muted/50 active:bg-muted transition-colors text-left">
+                            <div className="relative w-10 h-10 md:w-11 md:h-11 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                              <span className="text-foreground font-medium text-sm md:text-base">
+                                {onlineUser.username.charAt(0).toUpperCase()}
+                              </span>
+                              <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-safe rounded-full border-2 border-card animate-pulse" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-foreground font-medium text-sm md:text-base truncate">{onlineUser.username}</p>
+                              <p className="text-safe text-xs truncate">{(onlineUser as any).status || 'Online now'}</p>
+                            </div>
+                          </motion.button>
+                        ))}
                       </AnimatePresence>
                     )}
                   </div>
                 ) : (
-                  // Conversations List
                   <>
                     {isLoadingConversations ? (
                       <div className="flex items-center justify-center py-8">
@@ -340,25 +321,20 @@ const Tone = () => {
                       <div className="text-center py-8 px-4">
                         <MessageSquare className="w-10 h-10 md:w-12 md:h-12 text-muted mx-auto mb-3" />
                         <p className="text-secondary text-sm">No conversations yet</p>
-                        <p className="text-muted-foreground text-xs mt-1">
-                          Start a new chat to get going!
-                        </p>
+                        <p className="text-muted-foreground text-xs mt-1">Start a new chat to get going!</p>
                       </div>
                     ) : (
                       <AnimatePresence>
                         {filteredConversations.map((conv) => {
                           const isOtherUserOnline = conv.other_user && onlineUsers.some(u => u.id === conv.other_user?.id);
-                          const otherUserStatus = conv.other_user ? onlineUsers.find(u => u.id === conv.other_user?.id)?.status : undefined;
+                          const otherUserStatus = conv.other_user
+                            ? (onlineUsers.find(u => u.id === conv.other_user?.id) as any)?.status
+                            : undefined;
                           return (
-                            <motion.button
-                              key={conv.id}
-                              initial={{ opacity: 0, x: -20 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: -20 }}
+                            <motion.button key={conv.id}
+                              initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
                               onClick={() => handleSelectConversation(conv.id)}
-                              className={`w-full p-3 md:p-4 flex items-center gap-3 hover:bg-muted/50 active:bg-muted transition-colors text-left ${selectedConversation === conv.id ? 'bg-muted' : ''
-                                }`}
-                            >
+                              className={`w-full p-3 md:p-4 flex items-center gap-3 hover:bg-muted/50 active:bg-muted transition-colors text-left ${selectedConversation === conv.id ? 'bg-muted' : ''}`}>
                               <div className="relative w-10 h-10 md:w-11 md:h-11 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
                                 {conv.is_group ? (
                                   <Users className="w-5 h-5 text-secondary" />
@@ -367,7 +343,6 @@ const Tone = () => {
                                     {conv.other_user?.username?.charAt(0).toUpperCase() || '?'}
                                   </span>
                                 )}
-                                {/* Online/Unread indicator */}
                                 {conv.has_unread ? (
                                   <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-safe rounded-full border-2 border-card" />
                                 ) : !conv.is_group && isOtherUserOnline ? (
@@ -375,19 +350,26 @@ const Tone = () => {
                                 ) : null}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center justify-between gap-2">
                                   <p className={`truncate text-sm md:text-base ${conv.has_unread ? 'text-foreground font-semibold' : 'text-foreground font-medium'}`}>
                                     {conv.is_group ? conv.name : conv.other_user?.username || 'Unknown'}
                                   </p>
-                                  {!conv.is_group && isOtherUserOnline && (
-                                    <span className="text-safe text-xs flex-shrink-0">●</span>
+                                  {conv.last_message_at && (
+                                    <span className="text-xs text-secondary flex-shrink-0">
+                                      {new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
                                   )}
                                 </div>
-                                <p className={`text-xs md:text-sm truncate ${conv.has_unread ? 'text-foreground font-medium' : 'text-secondary'}`}>
-                                  {!conv.is_group && isOtherUserOnline && otherUserStatus
-                                    ? otherUserStatus
-                                    : conv.last_message || 'No messages yet'}
-                                </p>
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className={`text-xs md:text-sm truncate flex-1 ${conv.has_unread ? 'text-foreground font-medium' : 'text-secondary'}`}>
+                                    {!conv.is_group && isOtherUserOnline && otherUserStatus
+                                      ? otherUserStatus
+                                      : conv.last_message || 'No messages yet'}
+                                  </p>
+                                  {conv.has_unread && (
+                                    <span className="w-2 h-2 rounded-full bg-safe flex-shrink-0" />
+                                  )}
+                                </div>
                               </div>
                             </motion.button>
                           );
@@ -403,32 +385,19 @@ const Tone = () => {
 
         {/* Main Chat Area */}
         <main className={`flex-1 flex flex-col min-w-0 ${isMobile && isSidebarOpen && !selectedConversation ? 'hidden' : ''}`}>
-          {/* Header when sidebar is collapsed on desktop */}
           {!isMobile && !isSidebarOpen && (
             <div className="h-14 md:h-16 border-b border-border flex items-center px-4 bg-card/30 flex-shrink-0">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsSidebarOpen(true)}
-                className="text-secondary hover:text-foreground h-9 w-9"
-                title="Expand sidebar"
-              >
+              <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(true)}
+                className="text-secondary hover:text-foreground h-9 w-9" title="Expand sidebar">
                 <PanelLeft className="w-5 h-5" />
               </Button>
               <h1 className="text-lg font-semibold text-foreground ml-3">Tone</h1>
             </div>
           )}
-
-          {/* Mobile header when no conversation selected */}
           {isMobile && !selectedConversation && !isSidebarOpen && (
             <div className="h-14 border-b border-border flex items-center px-4 bg-card/30 flex-shrink-0">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsSidebarOpen(true)}
-                className="text-secondary hover:text-foreground h-9 w-9"
-                title="Show conversations"
-              >
+              <Button variant="ghost" size="icon" onClick={() => setIsSidebarOpen(true)}
+                className="text-secondary hover:text-foreground h-9 w-9" title="Show conversations">
                 <PanelLeft className="w-5 h-5" />
               </Button>
               <h1 className="text-base font-semibold text-foreground ml-3">Tone</h1>
@@ -436,25 +405,15 @@ const Tone = () => {
           )}
 
           {selectedConversation ? (
-            <ConversationView
-              conversationId={selectedConversation}
-              onClose={handleBackToConversations}
-            />
+            <ConversationView conversationId={selectedConversation} onClose={handleBackToConversations} />
           ) : (
             <div className="flex-1 flex items-center justify-center p-4">
               <div className="text-center">
                 <MessageSquare className="w-12 h-12 md:w-16 md:h-16 text-muted mx-auto mb-4" />
-                <h2 className="text-lg md:text-xl font-semibold text-foreground mb-2">
-                  Select a conversation
-                </h2>
-                <p className="text-secondary text-sm md:text-base">
-                  Choose a chat or start a new one
-                </p>
+                <h2 className="text-lg md:text-xl font-semibold text-foreground mb-2">Select a conversation</h2>
+                <p className="text-secondary text-sm md:text-base">Choose a chat or start a new one</p>
                 {isMobile && (
-                  <Button
-                    onClick={() => setIsSidebarOpen(true)}
-                    className="mt-4 bg-safe text-foreground hover:bg-safe/90"
-                  >
+                  <Button onClick={() => setIsSidebarOpen(true)} className="mt-4 bg-safe text-foreground hover:bg-safe/90">
                     View Conversations
                   </Button>
                 )}
@@ -463,18 +422,8 @@ const Tone = () => {
           )}
         </main>
 
-        {/* New Chat Dialog */}
-        <NewChatDialog
-          isOpen={isNewChatOpen}
-          onClose={() => setIsNewChatOpen(false)}
-          onConversationCreated={handleConversationCreated}
-        />
-
-        {/* Profile Modal */}
-        <ProfileModal
-          isOpen={isProfileOpen}
-          onClose={() => setIsProfileOpen(false)}
-        />
+        <NewChatDialog isOpen={isNewChatOpen} onClose={() => setIsNewChatOpen(false)} onConversationCreated={handleConversationCreated} />
+        <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
       </div>
     </>
   );
