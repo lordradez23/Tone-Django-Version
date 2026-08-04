@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, PushSubscription
 import json, os
@@ -6,9 +6,7 @@ import json, os
 push_bp = Blueprint("push", __name__)
 
 def get_vapid_claims():
-    return {
-        "sub": os.getenv("VAPID_CLAIMS_EMAIL", "mailto:admin@tone.app"),
-    }
+    return {"sub": os.getenv("VAPID_CLAIMS_EMAIL", "mailto:admin@tone.app")}
 
 @push_bp.get("/push/vapid-public-key")
 def vapid_public_key():
@@ -23,10 +21,8 @@ def subscribe():
     keys = data.get("keys", {})
     p256dh = keys.get("p256dh")
     auth = keys.get("auth")
-
     if not endpoint or not p256dh or not auth:
         return jsonify({"error": "Invalid subscription"}), 400
-
     sub = PushSubscription.query.filter_by(endpoint=endpoint).first()
     if sub:
         sub.user_id = user_id
@@ -42,8 +38,7 @@ def subscribe():
 @jwt_required()
 def unsubscribe():
     user_id = get_jwt_identity()
-    data = request.json
-    endpoint = data.get("endpoint")
+    endpoint = request.json.get("endpoint")
     PushSubscription.query.filter_by(user_id=user_id, endpoint=endpoint).delete()
     db.session.commit()
     return jsonify({"ok": True})
