@@ -304,7 +304,7 @@ const Tone = () => {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-foreground font-medium text-sm md:text-base truncate">{onlineUser.username}</p>
-                              <p className="text-safe text-xs truncate">{(onlineUser as any).status || 'Online now'}</p>
+                              <p className="text-safe text-xs truncate">{onlineUser.status || 'Online now'}</p>
                             </div>
                           </motion.button>
                         ))}
@@ -328,7 +328,7 @@ const Tone = () => {
                         {filteredConversations.map((conv) => {
                           const isOtherUserOnline = conv.other_user && onlineUsers.some(u => u.id === conv.other_user?.id);
                           const otherUserStatus = conv.other_user
-                            ? (onlineUsers.find(u => u.id === conv.other_user?.id) as any)?.status
+                            ? onlineUsers.find(u => u.id === conv.other_user?.id)?.status
                             : undefined;
                           return (
                             <motion.button key={conv.id}

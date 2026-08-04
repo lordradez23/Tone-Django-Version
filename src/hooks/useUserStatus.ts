@@ -4,13 +4,12 @@ import { api } from "@/integrations/api/client";
 export const useUserStatus = () => {
   const [isSaving, setIsSaving] = useState(false);
 
-  const updateStatus = useCallback(async (status: string): Promise<string | null> => {
+  const updateStatus = useCallback(async (status: string): Promise<void> => {
     setIsSaving(true);
     try {
-      const data = await api.put<{ status: string }>("/users/status", { status });
-      return data.status;
+      await api.put<{ status: string }>("/users/status", { status });
     } catch {
-      return null;
+      // silently fail — status is non-critical
     } finally {
       setIsSaving(false);
     }

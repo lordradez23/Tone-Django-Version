@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { socket } from "@/integrations/api/socket";
 
-export interface OnlineUser { id: string; username: string; status: string; }
+interface OnlineUser { id: string; username: string; status: string; }
 
 export const useGlobalPresence = () => {
   const { user } = useAuth();
