@@ -14,6 +14,7 @@ class User(db.Model):
     username = db.Column(db.String, unique=True, nullable=False)
     password_hash = db.Column(db.String, nullable=False)
     avatar_url = db.Column(db.String, nullable=True)
+    status = db.Column(db.String, nullable=True, default="")
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 class Conversation(db.Model):
@@ -49,3 +50,12 @@ class Message(db.Model):
     attachment_type = db.Column(db.String, nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     sender = db.relationship("User", foreign_keys=[sender_id])
+
+class PushSubscription(db.Model):
+    __tablename__ = "push_subscriptions"
+    id = db.Column(db.String, primary_key=True, default=gen_uuid)
+    user_id = db.Column(db.String, db.ForeignKey("users.id"), nullable=False)
+    endpoint = db.Column(db.Text, nullable=False, unique=True)
+    p256dh = db.Column(db.Text, nullable=False)
+    auth = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))

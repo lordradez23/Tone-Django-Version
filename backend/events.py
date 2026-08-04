@@ -10,17 +10,20 @@ def on_connect():
 
 @socketio.on("join")
 def on_join(data):
-    from flask_socketio import join_room
+    from flask_socketio import join_room, request as sock_request
+    from models import User
     user_id = data.get("user_id")
     username = data.get("username")
     conv_id = data.get("conversation_id")
 
     if user_id and username:
-        from flask_socketio import request as sock_request
+        user = User.query.get(user_id)
+        status = user.status or "" if user else ""
         sid_to_user[sock_request.sid] = {"id": user_id, "username": username}
-        online_users[user_id] = username
+        online_users[user_id] = {"username": username, "status": status}
         socketio.emit("online_users", [
-            {"id": uid, "username": uname} for uid, uname in online_users.items()
+            {"id": uid, "username": info["username"], "status": info.get("status", "")}
+            for uid, info in online_users.items()
         ])
 
     if conv_id:
@@ -52,5 +55,6 @@ def on_disconnect():
     if user:
         online_users.pop(user["id"], None)
         socketio.emit("online_users", [
-            {"id": uid, "username": uname} for uid, uname in online_users.items()
+            {"id": uid, "username": info["username"], "status": info.get("status", "")}
+            for uid, info in online_users.items()
         ])

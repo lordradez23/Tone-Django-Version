@@ -25,7 +25,7 @@ def signup():
     db.session.commit()
 
     token = create_access_token(identity=user.id)
-    return jsonify({"token": token, "user": {"id": user.id, "email": user.email, "username": user.username}}), 201
+    return jsonify({"token": token, "user": {"id": user.id, "email": user.email, "username": user.username, "status": user.status or ""}}), 201
 
 @auth_bp.post("/signin")
 def signin():
@@ -38,7 +38,7 @@ def signin():
         return jsonify({"error": "Invalid email or password"}), 401
 
     token = create_access_token(identity=user.id)
-    return jsonify({"token": token, "user": {"id": user.id, "email": user.email, "username": user.username}}), 200
+    return jsonify({"token": token, "user": {"id": user.id, "email": user.email, "username": user.username, "status": user.status or ""}}), 200
 
 @auth_bp.get("/me")
 @jwt_required()
@@ -47,7 +47,7 @@ def me():
     user = User.query.get(user_id)
     if not user:
         return jsonify({"error": "User not found"}), 404
-    return jsonify({"id": user.id, "email": user.email, "username": user.username, "avatar_url": user.avatar_url, "created_at": user.created_at.isoformat()})
+    return jsonify({"id": user.id, "email": user.email, "username": user.username, "avatar_url": user.avatar_url, "status": user.status or "", "created_at": user.created_at.isoformat()})
 
 @auth_bp.put("/profile")
 @jwt_required()
@@ -78,7 +78,7 @@ def update_profile():
         user.password_hash = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
 
     db.session.commit()
-    return jsonify({"id": user.id, "email": user.email, "username": user.username, "avatar_url": user.avatar_url, "created_at": user.created_at.isoformat()})
+    return jsonify({"id": user.id, "email": user.email, "username": user.username, "avatar_url": user.avatar_url, "status": user.status or "", "created_at": user.created_at.isoformat()})
 
 @auth_bp.post("/avatar")
 @jwt_required()

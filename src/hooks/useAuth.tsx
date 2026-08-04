@@ -6,6 +6,7 @@ interface AuthUser {
   email: string;
   username: string;
   avatar_url?: string | null;
+  status?: string;
   created_at?: string;
 }
 

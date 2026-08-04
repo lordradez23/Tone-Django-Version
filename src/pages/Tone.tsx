@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, MessageSquare, Users, LogOut, Search, Loader2, PanelLeftClose, PanelLeft, Circle, User } from 'lucide-react';
+import { Plus, MessageSquare, Users, LogOut, Search, Loader2, PanelLeftClose, PanelLeft, Circle, User, Pencil, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
 import { useGlobalPresence } from '@/hooks/useGlobalPresence';
+import { useUserStatus } from '@/hooks/useUserStatus';
 import { socket } from '@/integrations/api/socket';
 import { api, API_BASE } from '@/integrations/api/client';
 import { ConversationView } from '@/components/chat/ConversationView';
@@ -32,6 +33,7 @@ interface Conversation {
 const Tone = () => {
   const { user, loading, signOut } = useAuth();
   const { onlineUsers } = useGlobalPresence();
+  const { updateStatus, isSaving: isSavingStatus } = useUserStatus();
   const navigate = useNavigate();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
@@ -42,6 +44,8 @@ const Tone = () => {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [showOnlineUsers, setShowOnlineUsers] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isEditingStatus, setIsEditingStatus] = useState(false);
+  const [statusDraft, setStatusDraft] = useState('');
 
   // Handle window resize for responsive behavior
   useEffect(() => {
@@ -104,6 +108,11 @@ const Tone = () => {
     } else {
       setSelectedConversation(null);
     }
+  };
+
+  const handleSaveStatus = async () => {
+    await updateStatus(statusDraft.trim());
+    setIsEditingStatus(false);
   };
 
   const filteredConversations = conversations.filter((conv) => {
@@ -198,6 +207,40 @@ const Tone = () => {
                 </div>
               </div>
 
+              {/* Status Bar */}
+              <div className="px-3 md:px-4 py-2 border-b border-border flex items-center gap-2 min-h-[36px]">
+                {isEditingStatus ? (
+                  <>
+                    <input
+                      autoFocus
+                      maxLength={100}
+                      value={statusDraft}
+                      onChange={(e) => setStatusDraft(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleSaveStatus(); if (e.key === 'Escape') setIsEditingStatus(false); }}
+                      placeholder="Set a status..."
+                      className="flex-1 bg-muted border border-border rounded px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                    />
+                    <button onClick={handleSaveStatus} disabled={isSavingStatus} className="p-1 text-safe hover:text-safe/80 flex-shrink-0">
+                      {isSavingStatus ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    </button>
+                    <button onClick={() => setIsEditingStatus(false)} className="p-1 text-secondary hover:text-foreground flex-shrink-0">
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => { setStatusDraft(user?.status ?? ''); setIsEditingStatus(true); }}
+                    className="flex items-center gap-1.5 w-full text-left group"
+                  >
+                    <Circle className="w-2 h-2 fill-safe text-safe flex-shrink-0" />
+                    <span className="text-xs text-secondary truncate flex-1 group-hover:text-foreground transition-colors">
+                      {user?.status ? user.status : 'Set a status...'}
+                    </span>
+                    <Pencil className="w-3 h-3 text-secondary opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                  </button>
+                )}
+              </div>
+
               {/* Search */}
               <div className="p-3 md:p-4">
                 <div className="relative">
@@ -279,7 +322,7 @@ const Tone = () => {
                                 <p className="text-foreground font-medium text-sm md:text-base truncate">
                                   {onlineUser.username}
                                 </p>
-                                <p className="text-safe text-xs">Online now</p>
+                                <p className="text-safe text-xs truncate">{onlineUser.status || 'Online now'}</p>
                               </div>
                             </motion.button>
                           ))}
@@ -305,6 +348,7 @@ const Tone = () => {
                       <AnimatePresence>
                         {filteredConversations.map((conv) => {
                           const isOtherUserOnline = conv.other_user && onlineUsers.some(u => u.id === conv.other_user?.id);
+                          const otherUserStatus = conv.other_user ? onlineUsers.find(u => u.id === conv.other_user?.id)?.status : undefined;
                           return (
                             <motion.button
                               key={conv.id}
@@ -340,7 +384,9 @@ const Tone = () => {
                                   )}
                                 </div>
                                 <p className={`text-xs md:text-sm truncate ${conv.has_unread ? 'text-foreground font-medium' : 'text-secondary'}`}>
-                                  {conv.last_message || 'No messages yet'}
+                                  {!conv.is_group && isOtherUserOnline && otherUserStatus
+                                    ? otherUserStatus
+                                    : conv.last_message || 'No messages yet'}
                                 </p>
                               </div>
                             </motion.button>
