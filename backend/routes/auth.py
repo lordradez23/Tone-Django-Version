@@ -25,7 +25,7 @@ def signup():
     db.session.commit()
 
     token = create_access_token(identity=user.id)
-    return jsonify({"token": token, "user": {"id": user.id, "email": user.email, "username": user.username, "status": user.status or ""}}), 201
+    return jsonify({"token": token, "user": {"id": user.id, "email": user.email, "username": user.username, "avatar_url": user.avatar_url, "status": user.status or "", "created_at": user.created_at.isoformat()}}), 201
 
 @auth_bp.post("/signin")
 def signin():
@@ -38,7 +38,7 @@ def signin():
         return jsonify({"error": "Invalid email or password"}), 401
 
     token = create_access_token(identity=user.id)
-    return jsonify({"token": token, "user": {"id": user.id, "email": user.email, "username": user.username, "status": user.status or ""}}), 200
+    return jsonify({"token": token, "user": {"id": user.id, "email": user.email, "username": user.username, "avatar_url": user.avatar_url, "status": user.status or "", "created_at": user.created_at.isoformat()}}), 200
 
 @auth_bp.get("/me")
 @jwt_required()

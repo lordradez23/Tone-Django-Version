@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Camera, Loader2, Check, AlertCircle, User, Mail, Lock, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -32,6 +32,19 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Sync fields whenever modal opens or user data changes after a save
+  useEffect(() => {
+    if (isOpen && user) {
+      setUsername(user.username);
+      setEmail(user.email);
+      setAvatarPreview(null);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setErrors({});
+    }
+  }, [isOpen, user]);
 
   if (!user) return null;
 
