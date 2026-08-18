@@ -64,7 +64,7 @@ export const SuggestionCard = ({
 
               {/* Original Message */}
               <div className="mb-4">
-                <p className="text-small text-xs uppercase tracking-wider mb-2">Original Message</p>
+                <p className="text-xs uppercase tracking-wider mb-2">Original Message</p>
                 <div className="bg-muted/50 rounded-lg p-3 border-l-4 border-toxic">
                   <p className="text-foreground text-sm">{originalMessage}</p>
                 </div>
@@ -74,7 +74,7 @@ export const SuggestionCard = ({
               <div className="mb-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Lightbulb className="w-4 h-4 text-safe" />
-                  <p className="text-small text-xs uppercase tracking-wider">Suggested Rephrase</p>
+                  <p className="text-xs uppercase tracking-wider">Suggested Rephrase</p>
                 </div>
                 <div className="bg-safe/10 rounded-lg p-3 border-l-4 border-safe">
                   <p className="text-foreground text-sm">{analysis.rephrase.suggestion}</p>
@@ -83,7 +83,7 @@ export const SuggestionCard = ({
 
               {/* Reason */}
               <div className="mb-6 p-3 bg-muted/30 rounded-lg">
-                <p className="text-small text-sm">
+                <p className="text-sm">
                   <span className="font-medium text-foreground">Why?</span> {analysis.rephrase.reason}
                 </p>
               </div>
