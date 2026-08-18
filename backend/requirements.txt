@@ -1,8 +1,10 @@
-flask
-flask-cors
-flask-socketio
-flask-sqlalchemy
-flask-jwt-extended
-bcrypt
+django
+djangorestframework
+djangorestframework-simplejwt
+django-cors-headers
+channels
+channels-redis
+daphne
 python-dotenv
 google-genai
+pywebpush
