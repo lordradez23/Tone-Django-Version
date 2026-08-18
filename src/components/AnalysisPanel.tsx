@@ -1,11 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { AnalysisResult } from '@/types/chat';
 import { AlertTriangle, TrendingUp, Loader2, Lightbulb } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface AnalysisPanelProps {
   analysis: AnalysisResult | null;
@@ -14,31 +10,31 @@ interface AnalysisPanelProps {
 }
 
 export const AnalysisPanel = ({ analysis, isAnalyzing, onSelectAlternative }: AnalysisPanelProps) => {
-  const sentimentEmoji = {
+  const sentimentEmoji: Record<string, string> = {
     positive: '😊',
     neutral: '😐',
     negative: '😔',
   };
 
-  const toxicityColors = {
+  const toxicityColors: Record<string, string> = {
     safe: 'bg-safe',
     warning: 'bg-warning',
     toxic: 'bg-toxic',
   };
 
-  const toxicityLabels = {
+  const toxicityLabels: Record<string, string> = {
     safe: 'Looking good',
     warning: 'Could be softer',
     toxic: 'Consider rephrasing',
   };
 
-  const toxicityExplanations = {
+  const toxicityExplanations: Record<string, string> = {
     safe: 'Your message has a positive or neutral tone that should be well-received.',
     warning: 'Some words or phrasing might come across as dismissive or could be misinterpreted.',
     toxic: 'The language used may unintentionally hurt feelings or escalate conflict. A gentler approach could help.',
   };
 
-  const toxicityGlows = {
+  const toxicityGlows: Record<string, string> = {
     safe: 'shadow-[0_0_20px_hsla(142,52%,42%,0.4)]',
     warning: 'shadow-[0_0_20px_hsla(45,65%,55%,0.4)]',
     toxic: 'shadow-[0_0_20px_hsla(0,65%,55%,0.4)]',
@@ -48,7 +44,7 @@ export const AnalysisPanel = ({ analysis, isAnalyzing, onSelectAlternative }: An
     <div className="h-full flex flex-col">
       <div className="p-4 border-b border-border">
         <h2 className="text-lg font-semibold text-foreground">Live Analysis</h2>
-        <p className="text-small mt-1">Real-time message safety check</p>
+        <p className="text-sm mt-1">Real-time message safety check</p>
       </div>
 
       <div className="flex-1 p-4 space-y-4 overflow-y-auto scrollbar-thin">
@@ -62,7 +58,7 @@ export const AnalysisPanel = ({ analysis, isAnalyzing, onSelectAlternative }: An
               className="flex items-center justify-center py-8"
             >
               <Loader2 className="w-6 h-6 text-secondary animate-spin" />
-              <span className="ml-2 text-small">Analyzing...</span>
+              <span className="ml-2 text-sm">Analyzing...</span>
             </motion.div>
           )}
 
@@ -74,7 +70,7 @@ export const AnalysisPanel = ({ analysis, isAnalyzing, onSelectAlternative }: An
               exit={{ opacity: 0 }}
               className="text-center py-8"
             >
-              <p className="text-small">Start typing to see live analysis</p>
+              <p className="text-sm">Start typing to see live analysis</p>
             </motion.div>
           )}
 
@@ -91,11 +87,11 @@ export const AnalysisPanel = ({ analysis, isAnalyzing, onSelectAlternative }: An
               <div className="analysis-card">
                 <div className="flex items-center gap-2 mb-3">
                   <TrendingUp className="w-4 h-4 text-secondary" />
-                  <span className="text-small font-medium">Sentiment</span>
+                  <span className="text-sm font-medium">Sentiment</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <motion.span 
+                    <motion.span
                       className="text-3xl"
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
@@ -107,7 +103,7 @@ export const AnalysisPanel = ({ analysis, isAnalyzing, onSelectAlternative }: An
                       {analysis.sentiment.label}
                     </span>
                   </div>
-                  <span className="text-small">
+                  <span className="text-sm">
                     {(analysis.sentiment.confidence * 100).toFixed(0)}%
                   </span>
                 </div>
@@ -117,10 +113,9 @@ export const AnalysisPanel = ({ analysis, isAnalyzing, onSelectAlternative }: An
               <div className="analysis-card">
                 <div className="flex items-center gap-2 mb-3">
                   <AlertTriangle className="w-4 h-4 text-secondary" />
-                  <span className="text-small font-medium">Toxicity Level</span>
+                  <span className="text-sm font-medium">Toxicity Level</span>
                 </div>
-                
-                {/* Toxicity Meter */}
+
                 <div className="h-3 bg-muted rounded-full overflow-hidden mb-3">
                   <motion.div
                     className={`h-full rounded-full ${toxicityColors[analysis.toxicity.label]} ${toxicityGlows[analysis.toxicity.label]}`}
@@ -129,11 +124,11 @@ export const AnalysisPanel = ({ analysis, isAnalyzing, onSelectAlternative }: An
                     transition={{ duration: 0.5, ease: 'easeOut' }}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <motion.span 
+                      <motion.span
                         className={`px-3 py-1 rounded-full text-sm font-medium cursor-help ${
                           analysis.toxicity.label === 'safe' ? 'bg-safe/20 text-safe' :
                           analysis.toxicity.label === 'warning' ? 'bg-warning/20 text-warning' :
@@ -149,14 +144,14 @@ export const AnalysisPanel = ({ analysis, isAnalyzing, onSelectAlternative }: An
                       <p>{toxicityExplanations[analysis.toxicity.label]}</p>
                     </TooltipContent>
                   </Tooltip>
-                  <span className="text-small">
+                  <span className="text-sm">
                     {(analysis.toxicity.confidence * 100).toFixed(0)}% confidence
                   </span>
                 </div>
               </div>
 
               {/* Feedback Card */}
-              <motion.div 
+              <motion.div
                 className="analysis-card"
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -169,7 +164,7 @@ export const AnalysisPanel = ({ analysis, isAnalyzing, onSelectAlternative }: An
 
               {/* Alternatives Card */}
               {analysis.alternatives && analysis.alternatives.length > 0 && (
-                <motion.div 
+                <motion.div
                   className="analysis-card"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -177,7 +172,7 @@ export const AnalysisPanel = ({ analysis, isAnalyzing, onSelectAlternative }: An
                 >
                   <div className="flex items-center gap-2 mb-3">
                     <Lightbulb className="w-4 h-4 text-safe" />
-                    <span className="text-small font-medium">Try saying it this way</span>
+                    <span className="text-sm font-medium">Try saying it this way</span>
                   </div>
                   <div className="space-y-2">
                     {analysis.alternatives.map((alt, index) => (
