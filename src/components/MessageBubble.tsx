@@ -23,7 +23,7 @@ export const MessageBubble = ({ message }: MessageBubbleProps) => {
           {message.content}
         </p>
         <div className="flex items-center justify-end gap-2 mt-2">
-          <span className="text-small text-xs">
+          <span className="text-xs">
             {format(message.timestamp, 'HH:mm')}
           </span>
         </div>
