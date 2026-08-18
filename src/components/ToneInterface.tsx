@@ -11,13 +11,13 @@ import { Button } from '@/components/ui/button';
 const WELCOME_MESSAGES: Message[] = [
   {
     id: '1',
-    content: 'Welcome to Tone! 👋\n\nI\'m here to help you communicate more effectively. Type a message and I\'ll analyze it in real-time.',
+    content: 'Welcome to Tone! 👋\n\nI am here to help you communicate more effectively. Type a message and I will analyze it in real-time.',
     sender: 'ai',
     timestamp: new Date(),
   },
   {
     id: '2',
-    content: 'Try typing any message to see how it might be perceived. I\'ll offer suggestions to help you express yourself clearly and kindly.',
+    content: 'Try typing any message to see how it might be perceived. I will offer suggestions to help you express yourself clearly and kindly.',
     sender: 'ai',
     timestamp: new Date(),
   },
@@ -134,7 +134,7 @@ export const ToneInterface = () => {
         <header className="h-16 border-b border-border flex items-center justify-between px-4 bg-card/50 backdrop-blur-sm">
           <div>
             <h1 className="text-foreground font-semibold text-lg">Tone</h1>
-            <p className="text-small text-xs">Set the right tone</p>
+            <p className="text-xs">Set the right tone</p>
           </div>
           <button
             onClick={() => setShowMobilePanel(!showMobilePanel)}
