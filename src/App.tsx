@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { AuthProvider } from "@/hooks/useAuth";
+import AuthConfirm from "./pages/AuthConfirm";
 import Landing from "./pages/Landing";
 import Auth from "./pages/Auth";
 import Tone from "./pages/Tone";
@@ -25,6 +26,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/confirm" element={<AuthConfirm />} />
               <Route path="/chat" element={<Tone />} />
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<TermsOfService />} />
