@@ -6,7 +6,7 @@ export const analyzeMessage = async (text: string): Promise<AnalysisResult> => {
     return {
       sentiment: { label: "neutral", confidence: 0.5 },
       toxicity: { label: "safe", confidence: 0.2 },
-      feedback: "✓ Start typing to see live analysis",
+      feedback: "Start typing to see live analysis",
       shouldWarn: false,
       alternatives: [],
     };
@@ -17,7 +17,7 @@ export const analyzeMessage = async (text: string): Promise<AnalysisResult> => {
     return {
       sentiment: { label: "neutral", confidence: 0.5 },
       toxicity: { label: "safe", confidence: 0.3 },
-      feedback: "⚠️ Analysis unavailable",
+      feedback: "Analysis unavailable — please try again",
       shouldWarn: false,
       alternatives: [],
     };
