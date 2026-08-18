@@ -25,23 +25,20 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
 
   const [username, setUsername] = useState(user?.username || '');
   const [email, setEmail] = useState(user?.email || '');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [updatedPass, setUpdatedPass] = useState('');
+  const [repeatPass, setRepeatPass] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Sync fields whenever modal opens or user data changes after a save
   useEffect(() => {
     if (isOpen && user) {
       setUsername(user.username);
       setEmail(user.email);
       setAvatarPreview(null);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
+      setUpdatedPass('');
+      setRepeatPass('');
       setErrors({});
     }
   }, [isOpen, user]);
@@ -55,9 +52,9 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
     else if (username.trim().length > 20) e.username = 'Username must be less than 20 characters';
     if (!email.trim()) e.email = 'Email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) e.email = 'Invalid email address';
-    if (newPassword) {
-      if (newPassword.length < 6) e.newPassword = 'Password must be at least 6 characters';
-      if (newPassword !== confirmPassword) e.confirmPassword = 'Passwords do not match';
+    if (updatedPass) {
+      if (updatedPass.length < 6) e.updatedPass = 'Must be at least 6 characters';
+      if (updatedPass !== repeatPass) e.repeatPass = 'Entries do not match';
     }
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -66,16 +63,12 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Preview
     const reader = new FileReader();
     reader.onload = (ev) => setAvatarPreview(ev.target?.result as string);
     reader.readAsDataURL(file);
-
     setIsUploadingAvatar(true);
     const { error } = await updateAvatar(file);
     setIsUploadingAvatar(false);
-
     if (error) {
       setAvatarPreview(null);
       toast({ title: 'Upload failed', description: error.message, variant: 'destructive' });
@@ -91,7 +84,7 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
     const payload: { username?: string; email?: string; password?: string } = {};
     if (username.trim() !== user.username) payload.username = username.trim();
     if (email.trim() !== user.email) payload.email = email.trim();
-    if (newPassword) payload.password = newPassword;
+    if (updatedPass) payload.password = updatedPass;
 
     if (Object.keys(payload).length === 0) {
       toast({ title: 'No changes to save' });
@@ -106,9 +99,8 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
       toast({ title: 'Update failed', description: error.message, variant: 'destructive' });
     } else {
       toast({ title: 'Profile updated!' });
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
+      setUpdatedPass('');
+      setRepeatPass('');
       setErrors({});
     }
   };
@@ -143,14 +135,11 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
     <AnimatePresence>
       {isOpen && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose}
             className="absolute inset-0 bg-black/60 backdrop-blur-sm"
           />
-
-          {/* Modal */}
           <motion.div
             initial={{ opacity: 0, y: 60, scale: 0.97 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -158,10 +147,8 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
             transition={{ type: 'spring', damping: 28, stiffness: 320 }}
             className="relative w-full sm:max-w-md bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl sm:mx-4 max-h-[90vh] flex flex-col"
           >
-            {/* Mobile drag handle */}
             <div className="sm:hidden w-10 h-1 bg-muted-foreground/30 rounded-full mx-auto mt-3 flex-shrink-0" />
 
-            {/* Header */}
             <div className="flex items-center justify-between px-5 py-4 border-b border-border flex-shrink-0">
               <h2 className="text-base font-semibold text-foreground">Edit Profile</h2>
               <button onClick={onClose} className="p-1.5 hover:bg-muted rounded-lg transition-colors">
@@ -169,14 +156,10 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
               </button>
             </div>
 
-            {/* Scrollable content */}
             <div className="overflow-y-auto flex-1 scrollbar-thin">
-              {/* Avatar section */}
               <div className="flex flex-col items-center pt-6 pb-4 px-5">
                 <div className="relative group">
                   <AvatarDisplay size="lg" />
-
-                  {/* Upload overlay */}
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={isUploadingAvatar}
@@ -187,8 +170,6 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
                       : <Camera className="w-6 h-6 text-white" />
                     }
                   </button>
-
-                  {/* Online dot */}
                   <span className="absolute bottom-0.5 right-0.5 w-4 h-4 bg-safe rounded-full border-2 border-card" />
                 </div>
 
@@ -216,9 +197,7 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
                 )}
               </div>
 
-              {/* Form */}
               <div className="px-5 pb-5 space-y-4">
-                {/* Username */}
                 <div className="space-y-1.5">
                   <Label className="text-sm text-foreground flex items-center gap-2">
                     <User className="w-3.5 h-3.5 text-secondary" /> Username
@@ -236,7 +215,6 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
                   )}
                 </div>
 
-                {/* Email */}
                 <div className="space-y-1.5">
                   <Label className="text-sm text-foreground flex items-center gap-2">
                     <Mail className="w-3.5 h-3.5 text-secondary" /> Email
@@ -255,34 +233,31 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
                   )}
                 </div>
 
-                {/* Divider */}
                 <div className="flex items-center gap-3 py-1">
                   <div className="flex-1 h-px bg-border" />
                   <span className="text-xs text-secondary">Change Password</span>
                   <div className="flex-1 h-px bg-border" />
                 </div>
 
-                {/* New Password */}
                 <div className="space-y-1.5">
                   <Label className="text-sm text-foreground flex items-center gap-2">
                     <Lock className="w-3.5 h-3.5 text-secondary" /> New Password
                   </Label>
                   <Input
                     type="password"
-                    value={newPassword}
-                    onChange={(e) => { setNewPassword(e.target.value); setErrors(p => ({ ...p, newPassword: '' })); }}
+                    value={updatedPass}
+                    onChange={(e) => { setUpdatedPass(e.target.value); setErrors(p => ({ ...p, updatedPass: '' })); }}
                     placeholder="Leave blank to keep current"
-                    className={`h-10 text-sm ${errors.newPassword ? 'border-toxic focus-visible:ring-toxic' : ''}`}
+                    className={`h-10 text-sm ${errors.updatedPass ? 'border-toxic focus-visible:ring-toxic' : ''}`}
                   />
-                  {errors.newPassword && (
+                  {errors.updatedPass && (
                     <p className="text-xs text-toxic flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />{errors.newPassword}
+                      <AlertCircle className="w-3 h-3" />{errors.updatedPass}
                     </p>
                   )}
                 </div>
 
-                {/* Confirm Password */}
-                {newPassword && (
+                {updatedPass && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
                     className="space-y-1.5"
@@ -292,17 +267,17 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
                     </Label>
                     <Input
                       type="password"
-                      value={confirmPassword}
-                      onChange={(e) => { setConfirmPassword(e.target.value); setErrors(p => ({ ...p, confirmPassword: '' })); }}
+                      value={repeatPass}
+                      onChange={(e) => { setRepeatPass(e.target.value); setErrors(p => ({ ...p, repeatPass: '' })); }}
                       placeholder="Repeat new password"
-                      className={`h-10 text-sm ${errors.confirmPassword ? 'border-toxic focus-visible:ring-toxic' : ''}`}
+                      className={`h-10 text-sm ${errors.repeatPass ? 'border-toxic focus-visible:ring-toxic' : ''}`}
                     />
-                    {errors.confirmPassword && (
+                    {errors.repeatPass && (
                       <p className="text-xs text-toxic flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />{errors.confirmPassword}
+                        <AlertCircle className="w-3 h-3" />{errors.repeatPass}
                       </p>
                     )}
-                    {confirmPassword && newPassword === confirmPassword && (
+                    {repeatPass && updatedPass === repeatPass && (
                       <p className="text-xs text-safe flex items-center gap-1">
                         <Check className="w-3 h-3" /> Passwords match
                       </p>
@@ -312,7 +287,6 @@ export const ProfileModal = ({ isOpen, onClose }: ProfileModalProps) => {
               </div>
             </div>
 
-            {/* Footer */}
             <div className="px-5 py-4 border-t border-border flex gap-3 flex-shrink-0">
               <Button variant="outline" onClick={onClose} className="flex-1 h-10 text-sm">
                 Cancel
