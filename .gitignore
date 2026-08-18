@@ -34,3 +34,4 @@ backend/*.pyc
 backend/uploads/
 backend/tone.db
 backend/.env
+node_modules
