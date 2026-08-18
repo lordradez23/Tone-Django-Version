@@ -1,7 +1,8 @@
-from app import create_app, socketio
-import events  # noqa: F401 - registers socket event handlers
+import sys
+import os
 
-app = create_app()
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "settings")
 
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=5000, debug=True)
+    from daphne.cli import CommandLineInterface
+    sys.exit(CommandLineInterface().run(["-p", "8000", "asgi:application"]))
