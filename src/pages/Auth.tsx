@@ -11,6 +11,8 @@ import { Helmet } from 'react-helmet-async';
 import { z } from 'zod';
 
 const signUpSchema = z.object({
+  first_name: z.string().min(1, 'First name is required'),
+  last_name: z.string().min(1, 'Last name is required'),
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   username: z.string().min(3, 'Username must be at least 3 characters').max(20, 'Username must be less than 20 characters'),
@@ -27,6 +29,8 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [username, setUsername] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -44,7 +48,7 @@ const Auth = () => {
   const validateForm = () => {
     try {
       if (isSignUp) {
-        signUpSchema.parse({ email, password, username });
+        signUpSchema.parse({ first_name: firstName, last_name: lastName, email, password, username });
       } else {
         signInSchema.parse({ email, password });
       }
@@ -73,27 +77,25 @@ const Auth = () => {
 
     try {
       if (isSignUp) {
-        const { error } = await signUp(email, password, username);
+        const { error } = await signUp(email, password, username, firstName, lastName);
         if (error) {
           if (error.message.includes('already registered')) {
-            toast({
-              title: 'Account exists',
-              description: 'An account with this email already exists. Try signing in instead.',
-              variant: 'destructive',
-            });
+            toast({ title: 'Account exists', description: 'An account with this email already exists. Try signing in instead.', variant: 'destructive' });
           } else {
-            toast({
-              title: 'Sign up failed',
-              description: error.message,
-              variant: 'destructive',
-            });
+            toast({ title: 'Sign up failed', description: error.message, variant: 'destructive' });
           }
         } else {
           toast({
-            title: 'Welcome to Tone!',
-            description: 'Your account has been created successfully.',
+            title: 'Account created!',
+            description: 'A confirmation link has been sent to your email. Please verify before signing in.',
           });
-          navigate('/chat');
+          // Redirect to sign in with email pre-filled
+          setIsSignUp(false);
+          setPassword('');
+          setUsername('');
+          setFirstName('');
+          setLastName('');
+          setErrors({});
         }
       } else {
         const { error } = await signIn(email, password);
@@ -161,24 +163,28 @@ const Auth = () => {
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               {isSignUp && (
-                <div className="space-y-2">
-                  <Label htmlFor="username" className="text-foreground">Username</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" />
-                    <Input
-                      id="username"
-                      type="text"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      placeholder="Choose a username"
-                      className="pl-10"
-                      disabled={isLoading}
-                    />
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="first_name" className="text-foreground">First Name</Label>
+                      <Input id="first_name" type="text" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" disabled={isLoading} />
+                      {errors.first_name && <p className="text-sm text-toxic">{errors.first_name}</p>}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="last_name" className="text-foreground">Last Name</Label>
+                      <Input id="last_name" type="text" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" disabled={isLoading} />
+                      {errors.last_name && <p className="text-sm text-toxic">{errors.last_name}</p>}
+                    </div>
                   </div>
-                  {errors.username && (
-                    <p className="text-sm text-toxic">{errors.username}</p>
-                  )}
-                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="username" className="text-foreground">Username</Label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-secondary" />
+                      <Input id="username" type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="Choose a username" className="pl-10" disabled={isLoading} />
+                    </div>
+                    {errors.username && <p className="text-sm text-toxic">{errors.username}</p>}
+                  </div>
+                </>
               )}
 
               <div className="space-y-2">
