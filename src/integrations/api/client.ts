@@ -1,16 +1,18 @@
-const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 export const API_BASE = BASE_URL.replace(/\/api$/, "");
 
+// Use sessionStorage instead of localStorage — scoped per tab, not accessible
+// by other origins, reducing XSS exposure for the JWT token.
 export function getToken() {
-  return localStorage.getItem("tone_token");
+  return sessionStorage.getItem("tone_token");
 }
 
 export function setToken(token: string) {
-  localStorage.setItem("tone_token", token);
+  sessionStorage.setItem("tone_token", token);
 }
 
 export function removeToken() {
-  localStorage.removeItem("tone_token");
+  sessionStorage.removeItem("tone_token");
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
